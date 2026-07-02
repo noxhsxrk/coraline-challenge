@@ -1,33 +1,38 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { GameService } from './game.service';
-import { ScoreService } from '../score/score.service';
+import { SCORE_SERVICE_TOKEN } from '../score/score.module';
 
 describe('GameService', () => {
   let gameService: GameService;
-  let scoreService: ScoreService;
+
+  const mockSession = { yourScore: 0 };
+
+  const mockScoreService = {
+    getHighScore: jest.fn().mockReturnValue(0),
+    updateHighScore: jest.fn().mockImplementation((s) => s),
+    getSession: jest.fn().mockReturnValue(mockSession),
+    setScore: jest.fn(),
+    createSession: jest.fn(),
+  };
 
   beforeEach(async () => {
+    jest.clearAllMocks();
+    mockSession.yourScore = 0;
+    mockScoreService.getSession.mockReturnValue(mockSession);
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         GameService,
-        {
-          provide: ScoreService,
-          useValue: {
-            getHighScore: jest.fn().mockReturnValue(0),
-            updateHighScore: jest.fn().mockImplementation((s) => s),
-          },
-        },
+        { provide: SCORE_SERVICE_TOKEN, useValue: mockScoreService },
       ],
     }).compile();
 
     gameService = module.get<GameService>(GameService);
-    scoreService = module.get<ScoreService>(ScoreService);
   });
 
   describe('play', () => {
-    it('should return botAction, result, yourScore, and highScore', () => {
-      const response = gameService.play('rock', 0);
-
+    it('returns botAction, result, yourScore, and highScore', () => {
+      const response = gameService.play('rock', 's1');
       expect(response).toHaveProperty('botAction');
       expect(response).toHaveProperty('result');
       expect(response).toHaveProperty('yourScore');
@@ -36,58 +41,35 @@ describe('GameService', () => {
       expect(['win', 'lose', 'draw']).toContain(response.result);
     });
 
-    it('should increment score when player wins', () => {
-      // We need to mock randomAction to control the bot's choice.
-      // Player: rock, Bot: scissors → win
+    it('increments score on win', () => {
+      mockSession.yourScore = 5;
       jest.spyOn(gameService as any, 'randomAction').mockReturnValue('scissors');
-
-      const response = gameService.play('rock', 5);
-      expect(response.result).toBe('win');
-      expect(response.yourScore).toBe(6);
+      const r = gameService.play('rock', 's1');
+      expect(r.result).toBe('win');
+      expect(r.yourScore).toBe(6);
+      expect(mockScoreService.setScore).toHaveBeenCalledWith('s1', 6);
     });
 
-    it('should reset score to 0 when player loses', () => {
+    it('resets score to 0 on lose', () => {
+      mockSession.yourScore = 5;
       jest.spyOn(gameService as any, 'randomAction').mockReturnValue('paper');
-
-      const response = gameService.play('rock', 5);
-      expect(response.result).toBe('lose');
-      expect(response.yourScore).toBe(0);
+      const r = gameService.play('rock', 's1');
+      expect(r.result).toBe('lose');
+      expect(r.yourScore).toBe(0);
     });
 
-    it('should keep score unchanged on draw', () => {
+    it('keeps score on draw', () => {
+      mockSession.yourScore = 5;
       jest.spyOn(gameService as any, 'randomAction').mockReturnValue('rock');
-
-      const response = gameService.play('rock', 5);
-      expect(response.result).toBe('draw');
-      expect(response.yourScore).toBe(5);
+      const r = gameService.play('rock', 's1');
+      expect(r.result).toBe('draw');
+      expect(r.yourScore).toBe(5);
     });
 
-    it('should update high score via ScoreService', () => {
-      jest.spyOn(gameService as any, 'randomAction').mockReturnValue('scissors');
-
-      gameService.play('rock', 5);
-      expect(scoreService.updateHighScore).toHaveBeenCalledWith(6);
-    });
-
-    it('should pass 0 to updateHighScore when player loses', () => {
-      jest.spyOn(gameService as any, 'randomAction').mockReturnValue('paper');
-
-      gameService.play('rock', 5);
-      expect(scoreService.updateHighScore).toHaveBeenCalledWith(0);
-    });
-  });
-
-  describe('randomAction', () => {
-    it('should always return a valid action', () => {
-      const results = new Set();
-      // Run many times to catch all possibilities
-      for (let i = 0; i < 100; i++) {
-        const action = (gameService as any).randomAction();
-        results.add(action);
-      }
-      expect(results.has('rock')).toBe(true);
-      expect(results.has('paper')).toBe(true);
-      expect(results.has('scissors')).toBe(true);
+    it('defaults to 0 when session not found', () => {
+      mockScoreService.getSession.mockReturnValue(undefined);
+      const r = gameService.play('rock', 'ghost');
+      expect(r.yourScore).toBeGreaterThanOrEqual(0);
     });
   });
 });

@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 
@@ -13,6 +13,9 @@ describe('Game API (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.enableCors();
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+    );
     await app.init();
   });
 
@@ -33,7 +36,7 @@ describe('Game API (e2e)', () => {
   it('POST /api/game/play returns valid response for rock', () => {
     return request(app.getHttpServer())
       .post('/api/game/play')
-      .send({ action: 'rock', currentScore: 0 })
+      .send({ action: 'rock' })
       .expect(201)
       .expect((res) => {
         expect(res.body).toHaveProperty('botAction');
@@ -45,23 +48,17 @@ describe('Game API (e2e)', () => {
       });
   });
 
-  it('POST /api/game/play handles paper action', () => {
+  it('POST /api/game/play rejects invalid action with 400', () => {
     return request(app.getHttpServer())
       .post('/api/game/play')
-      .send({ action: 'paper', currentScore: 3 })
-      .expect(201)
-      .expect((res) => {
-        expect(res.body.yourScore).toBeGreaterThanOrEqual(0);
-      });
+      .send({ action: 'invalid' })
+      .expect(400);
   });
 
-  it('POST /api/game/play handles scissors action', () => {
+  it('POST /api/game/play rejects missing action with 400', () => {
     return request(app.getHttpServer())
       .post('/api/game/play')
-      .send({ action: 'scissors', currentScore: 10 })
-      .expect(201)
-      .expect((res) => {
-        expect(res.body.yourScore).toBeGreaterThanOrEqual(0);
-      });
+      .send({})
+      .expect(400);
   });
 });
