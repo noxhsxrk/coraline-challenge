@@ -1,51 +1,93 @@
+@use '../../styles/tokens' as t;
+
 .actions {
   display: flex;
   justify-content: center;
-  gap: 1rem;
-  margin: 1.5rem 0;
+  gap: t.$space-md;
+  margin: 0;
   flex-wrap: wrap;
+  width: 100%;
 }
 
 .btn {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
-  padding: 1rem 1.25rem;
+  gap: t.$space-sm;
+  padding: t.$space-lg;
   min-width: 96px;
   min-height: 96px;
-  border: 2px solid #e5e7eb;
-  border-radius: 16px;
-  background: #fff;
+  border: 2px solid t.$color-border;
+  border-radius: t.$radius-lg;
+  background: t.$color-bg;
+  color: t.$color-ink;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color t.$duration-fast t.$ease-out,
+              background t.$duration-fast t.$ease-out,
+              transform t.$duration-fast t.$ease-out,
+              box-shadow t.$duration-fast t.$ease-out;
   user-select: none;
+  -webkit-tap-highlight-color: transparent;
+
+  @media (pointer: coarse) {
+    min-width: 100px;
+    min-height: 100px;
+    padding: t.$space-lg 1.25rem;
+  }
 
   &:hover:not(:disabled) {
-    border-color: #3b82f6;
-    background: #eff6ff;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    @media (hover: hover) {
+      border-color: t.$color-accent;
+      background: t.$color-accent-subtle;
+      transform: translateY(-1px);
+      box-shadow: t.$shadow-md;
+    }
   }
 
   &:active:not(:disabled) {
     transform: translateY(0);
   }
 
+  &:focus-visible {
+    outline: 2px solid t.$color-accent;
+    outline-offset: 2px;
+  }
+
   &:disabled {
-    opacity: 0.5;
+    opacity: 0.45;
     cursor: not-allowed;
     transform: none;
   }
 }
 
 .emoji {
-  font-size: 2rem;
+  font-size: 2.25rem;
   line-height: 1;
+  transition: transform t.$duration-fast t.$ease-out;
+
+  .btn:active:not(:disabled) & {
+    transform: scale(0.92);
+  }
 }
 
 .label {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: #374151;
+  color: t.$color-ink-secondary;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition: none;
+  }
+
+  .emoji {
+    transition: none;
+
+    .btn:active:not(:disabled) & {
+      transform: none;
+    }
+  }
 }

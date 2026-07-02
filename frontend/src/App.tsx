@@ -4,9 +4,10 @@ import { ScoreBoard } from './components/ScoreBoard/ScoreBoard';
 import { BotDisplay } from './components/BotDisplay/BotDisplay';
 import { GameActions } from './components/GameActions/GameActions';
 import { ResultBanner } from './components/ResultBanner/ResultBanner';
+import { History } from './components/History/History';
 import { useGame } from './hooks/useGame';
 import { useHighScoreSocket } from './hooks/useHighScoreSocket';
-import { fetchHighScore } from './lib/api';
+import { fetchScore } from './lib/api';
 import styles from './App.module.scss';
 
 export default function App() {
@@ -16,19 +17,23 @@ export default function App() {
     botAction,
     result,
     isLocked,
+    error,
+    history,
     selectAction,
     updateHighScore,
     setHighScore,
+    setYourScore,
   } = useGame();
 
-  // Load initial high score from server
   useEffect(() => {
-    fetchHighScore()
-      .then((data) => setHighScore(data.highScore))
+    fetchScore()
+      .then((data) => {
+        setHighScore(data.highScore);
+        setYourScore(data.yourScore);
+      })
       .catch(() => {});
-  }, [setHighScore]);
+  }, [setHighScore, setYourScore]);
 
-  // Listen for real-time high score updates
   const handleHighScoreUpdate = useCallback(
     (score: number) => {
       updateHighScore(score);
@@ -39,12 +44,16 @@ export default function App() {
   useHighScoreSocket(handleHighScoreUpdate);
 
   return (
-    <div className={styles.app}>
-      <Header />
-      <ScoreBoard yourScore={yourScore} highScore={highScore} />
-      <BotDisplay action={botAction} isLocked={isLocked} />
-      <ResultBanner result={result} />
-      <GameActions onSelect={selectAction} disabled={isLocked} />
+    <div className={styles.layout}>
+      <div className={styles.game}>
+        <Header />
+        <ScoreBoard yourScore={yourScore} highScore={highScore} />
+        <BotDisplay action={botAction} isLocked={isLocked} />
+        <ResultBanner result={result} />
+        {error && <p className={styles.error}>{error}</p>}
+        <GameActions onSelect={selectAction} disabled={isLocked} />
+      </div>
+      <History entries={history} />
     </div>
   );
 }

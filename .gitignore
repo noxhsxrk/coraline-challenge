@@ -3,3 +3,8 @@ dist/
 data/
 coverage/
 .env
+robot-tests/results/
+robot-tests/screenshots/
+__pycache__/
+/package.json
+/pnpm-lock.yaml

@@ -1,39 +1,54 @@
+@use '../../styles/tokens' as t;
+
 .banner {
   text-align: center;
-  padding: 0.75rem 1rem;
-  margin: 0.5rem auto;
-  max-width: 320px;
-  border-radius: 10px;
-  font-size: 1.15rem;
-  font-weight: 700;
-  animation: slideUp 0.35s ease;
+  padding: 0.625rem t.$space-md;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 300px;
+  border-radius: t.$radius-sm;
+  font-size: 1rem;
+  font-weight: 600;
+  animation: slideUp t.$duration-normal t.$ease-out both;
+
+  @media (pointer: coarse) {
+    font-size: 1.0625rem;
+    padding: 0.75rem t.$space-md;
+  }
 }
 
 .win {
-  background: #ecfdf5;
-  color: #059669;
-  border: 1px solid #a7f3d0;
+  background: t.$color-success-bg;
+  color: t.$color-success;
+  border: 1px solid t.$color-success-border;
 }
 
 .lose {
-  background: #fef2f2;
-  color: #dc2626;
-  border: 1px solid #fecaca;
+  background: t.$color-danger-bg;
+  color: t.$color-danger;
+  border: 1px solid t.$color-danger-border;
 }
 
 .draw {
-  background: #fffbeb;
-  color: #d97706;
-  border: 1px solid #fde68a;
+  background: t.$color-warning-bg;
+  color: t.$color-warning;
+  border: 1px solid t.$color-warning-border;
 }
 
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banner {
+    animation: none;
+    opacity: 1;
   }
 }

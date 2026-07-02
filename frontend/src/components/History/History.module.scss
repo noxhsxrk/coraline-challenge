@@ -1,0 +1,78 @@
+@use '../../styles/tokens' as t;
+
+.panel {
+  width: 100%;
+  max-width: 360px;
+}
+
+.heading {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: t.$color-ink-secondary;
+  margin: 0 0 t.$space-sm;
+  padding: 0 t.$space-sm;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: t.$space-sm;
+  padding: 6px t.$space-sm;
+  border-radius: t.$radius-sm;
+  background: t.$color-surface;
+  font-size: 0.875rem;
+}
+
+.round {
+  color: t.$color-ink-muted;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  min-width: 28px;
+}
+
+.move {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.vs {
+  color: t.$color-ink-muted;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+}
+
+.badge {
+  margin-left: auto;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: t.$radius-full;
+  font-size: 0.75rem;
+  font-weight: 700;
+
+  &.win {
+    background: t.$color-success-bg;
+    color: t.$color-success;
+  }
+
+  &.lose {
+    background: t.$color-danger-bg;
+    color: t.$color-danger;
+  }
+
+  &.draw {
+    background: t.$color-warning-bg;
+    color: t.$color-warning;
+  }
+}

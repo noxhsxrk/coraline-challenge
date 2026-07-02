@@ -1,74 +1,76 @@
-import { useState, useRef, useCallback } from 'react';
-import type { Action, Result, PlayResponse } from '../types/game';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import type { Action, Result, HistoryEntry, PlayResponse } from '../types/game';
 import { playGame } from '../lib/api';
-import Cookies from 'universal-cookie';
 
-const cookies = new Cookies(null, { path: '/' });
-const SCORE_COOKIE = 'rps_yourScore';
-const COOKIE_MAX_AGE = 7 * 24 * 60 * 60; // 7 days
-
-function loadScore(): number {
-  const val = cookies.get(SCORE_COOKIE);
-  const num = Number(val);
-  return Number.isFinite(num) && num >= 0 ? Math.floor(num) : 0;
-}
-
-function saveScore(score: number): void {
-  cookies.set(SCORE_COOKIE, String(score), { maxAge: COOKIE_MAX_AGE, sameSite: 'lax' });
-}
+const REVEAL_MS = 2000;
+const MAX_HISTORY = 50;
 
 export function useGame() {
-  const [yourScore, setYourScore] = useState<number>(loadScore);
+  const [yourScore, setYourScore] = useState<number>(0);
   const [highScore, setHighScore] = useState<number>(0);
   const [botAction, setBotAction] = useState<Action | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [isLocked, setIsLocked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lockRef = useRef(false);
+  const roundRef = useRef(0);
+  const entryIdRef = useRef(0);
 
-  const clearTimer = useCallback(() => {
-    if (timerRef.current !== null) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
+  useEffect(() => {
+    return () => {
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current);
+      }
+    };
   }, []);
 
   const selectAction = useCallback(
     async (action: Action) => {
-      if (isLocked || isLoading) return;
+      if (lockRef.current) return;
 
+      lockRef.current = true;
       setIsLoading(true);
       setIsLocked(true);
       setResult(null);
+      setError(null);
 
       try {
-        const data: PlayResponse = await playGame({
-          action,
-          currentScore: yourScore,
-        });
+        const data: PlayResponse = await playGame({ action });
 
-        // Reveal bot action immediately
         setBotAction(data.botAction);
 
-        // After 2 seconds, resolve the round
         timerRef.current = setTimeout(() => {
+          roundRef.current += 1;
+          const entry: HistoryEntry = {
+            id: ++entryIdRef.current,
+            player: action,
+            bot: data.botAction,
+            result: data.result,
+            round: roundRef.current,
+          };
+
           setYourScore(data.yourScore);
           setHighScore(data.highScore);
           setResult(data.result);
           setBotAction(null);
           setIsLocked(false);
           setIsLoading(false);
-          saveScore(data.yourScore);
+          lockRef.current = false;
+          setHistory((prev) => [entry, ...prev].slice(0, MAX_HISTORY));
           timerRef.current = null;
-        }, 2000);
-      } catch (err) {
-        console.error('API error:', err);
+        }, REVEAL_MS);
+      } catch {
+        setError('Connection lost. Try again.');
         setIsLocked(false);
         setIsLoading(false);
+        lockRef.current = false;
         setBotAction(null);
       }
     },
-    [isLocked, isLoading, yourScore],
+    [],
   );
 
   const updateHighScore = useCallback((newHighScore: number) => {
@@ -82,9 +84,11 @@ export function useGame() {
     result,
     isLocked,
     isLoading,
+    error,
+    history,
     selectAction,
     updateHighScore,
-    clearTimer,
     setHighScore,
+    setYourScore,
   };
 }

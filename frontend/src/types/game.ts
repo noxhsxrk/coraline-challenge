@@ -3,7 +3,6 @@ export type Result = 'win' | 'lose' | 'draw';
 
 export interface PlayRequest {
   action: Action;
-  currentScore: number;
 }
 
 export interface PlayResponse {
@@ -13,14 +12,15 @@ export interface PlayResponse {
   highScore: number;
 }
 
-export interface HighScoreResponse {
+export interface ScoreResponse {
   highScore: number;
+  yourScore: number;
 }
 
 export const ACTION_EMOJI: Record<Action, string> = {
-  rock: '🪨',
-  paper: '📄',
-  scissors: '✂️',
+  rock: '✊',
+  paper: '✋',
+  scissors: '✌️',
 };
 
 export const ACTION_LABEL: Record<Action, string> = {
@@ -30,7 +30,21 @@ export const ACTION_LABEL: Record<Action, string> = {
 };
 
 export const RESULT_LABEL: Record<Result, string> = {
-  win: 'You Win! 🎉',
-  lose: 'You Lose! 😢',
+  win: 'You Win! ✨',
+  lose: 'You Lose! 💥',
   draw: "It's a Draw! 🤝",
 };
+
+export const RESULT_ICON: Record<Result, string> = {
+  win: '+',
+  lose: '−',
+  draw: '=',
+};
+
+export interface HistoryEntry {
+  id: number;
+  player: Action;
+  bot: Action;
+  result: Result;
+  round: number;
+}

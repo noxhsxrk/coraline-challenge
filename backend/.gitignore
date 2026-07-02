@@ -3,3 +3,4 @@ dist/
 data/high-score.json
 coverage/
 .env
+pnpm-workspace.yaml

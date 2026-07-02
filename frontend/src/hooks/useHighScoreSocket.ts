@@ -1,8 +1,6 @@
 import { useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-// In production, socket connects to same origin (nginx proxies /socket.io).
-// In dev, point to backend directly.
 const WS_URL = import.meta.env.VITE_WS_URL ?? '';
 
 export function useHighScoreSocket(onHighScoreUpdate: (score: number) => void) {

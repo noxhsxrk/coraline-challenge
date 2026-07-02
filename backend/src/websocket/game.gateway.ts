@@ -4,7 +4,7 @@ import {
   OnGatewayInit,
   OnGatewayConnection,
 } from '@nestjs/websockets';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import { ScoreService } from '../score/score.service';
 import { Subscription } from 'rxjs';
 
@@ -13,6 +13,8 @@ import { Subscription } from 'rxjs';
     origin: ['http://localhost:3000', 'http://localhost:5173'],
     credentials: true,
   },
+  pingTimeout: 60000,
+  pingInterval: 25000,
 })
 export class GameGateway implements OnGatewayInit, OnGatewayConnection {
   @WebSocketServer() server: Server;
@@ -28,7 +30,7 @@ export class GameGateway implements OnGatewayInit, OnGatewayConnection {
     );
   }
 
-  handleConnection(client: any): void {
+  handleConnection(client: Socket): void {
     const highScore = this.scoreService.getHighScore();
     client.emit('highScoreUpdated', { highScore });
   }
