@@ -25,7 +25,7 @@ describe('PlayRequestDto', () => {
 
   it('rejects invalid action', async () => {
     const dto = new PlayRequestDto();
-    dto.action = 'invalid';
+    (dto as any).action = 'invalid';
     const errors = await validate(dto);
     expect(errors.length).toBeGreaterThan(0);
     expect(errors[0].constraints?.isIn).toBeDefined();
