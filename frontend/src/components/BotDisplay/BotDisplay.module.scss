@@ -1,0 +1,50 @@
+.container {
+  text-align: center;
+  margin: 1.5rem 0 1rem;
+}
+
+.label {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin: 0 0 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.display {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  border: 3px dashed #cbd5e1;
+  transition: all 0.3s ease;
+}
+
+.revealed .display {
+  border: 3px solid #3b82f6;
+  background: #eff6ff;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+}
+
+.emoji {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.bounce {
+  animation: popIn 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes popIn {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

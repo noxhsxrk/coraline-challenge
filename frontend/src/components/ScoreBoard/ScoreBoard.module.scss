@@ -1,0 +1,44 @@
+.board {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem;
+  margin: 0 auto;
+  max-width: 360px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 100px;
+}
+
+.label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+  margin-bottom: 0.25rem;
+}
+
+.value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  transition: transform 0.2s ease;
+}
+
+.high {
+  color: #e11d48;
+}
+
+.divider {
+  width: 1px;
+  height: 48px;
+  background: #d1d5db;
+}

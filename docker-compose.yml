@@ -1,0 +1,35 @@
+version: "3.8"
+
+services:
+  # ============================================================
+  # Backend — NestJS API + WebSocket
+  # Scale horizontally behind the nginx load balancer:
+  #   docker-compose up -d --scale backend=3
+  # ============================================================
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    # No container_name — allows scaling to multiple instances
+    # No ports exposed to host — nginx in frontend container
+    #   proxies to backend via Docker internal network
+    expose:
+      - "3001"
+    volumes:
+      - rps-data:/app/data
+    environment:
+      - NODE_ENV=production
+
+  # ============================================================
+  # Frontend — nginx (API Gateway + Load Balancer) + React SPA
+  # ============================================================
+  frontend:
+    build: ./frontend
+    container_name: rps-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  rps-data:
