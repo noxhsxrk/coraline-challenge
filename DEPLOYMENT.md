@@ -57,13 +57,19 @@ docker --version
 ## ขั้นตอนที่ 3: ติดตั้ง Docker Compose
 
 ```bash
-sudo apt install -y docker-compose
+sudo apt install -y docker-compose-v2
 ```
+
+> ถ้าคำสั่งนี้ไม่ได้ผล ให้ใช้:
+> ```bash
+> sudo curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+> sudo chmod +x /usr/local/bin/docker-compose
+> ```
 
 ตรวจสอบ:
 
 ```bash
-docker-compose --version
+docker compose version
 ```
 
 ---
@@ -81,8 +87,8 @@ cd coraline-challenge
 ## ขั้นตอนที่ 5: เปิดเกม
 
 ```bash
-cd ~/coraline-challenge/rock-paper-scissors
-sudo docker-compose up -d
+cd ~/coraline-challenge
+sudo docker compose up -d
 ```
 
 > รอประมาณ 2-3 นาทีให้ build เสร็จ (ครั้งแรก)
@@ -103,12 +109,12 @@ sudo docker-compose up -d
 
 | ต้องการทำอะไร | คำสั่ง |
 |---------------|--------|
-| **เปิดเกม** | `cd ~/coraline-challenge/rock-paper-scissors && sudo docker-compose up -d` |
-| **ปิดเกม** | `cd ~/coraline-challenge/rock-paper-scissors && sudo docker-compose stop` |
-| **เปิดใหม่หลังปิด** | `cd ~/coraline-challenge/rock-paper-scissors && sudo docker-compose start` |
-| **รีสตาร์ทเกม** | `cd ~/coraline-challenge/rock-paper-scissors && sudo docker-compose restart` |
-| **อัพเดทโค้ดแล้ว restart** | `cd ~/coraline-challenge && git pull && cd rock-paper-scissors && sudo docker-compose down && sudo docker-compose up -d --build` |
-| **ดูล็อก (log)** | `cd ~/coraline-challenge/rock-paper-scissors && sudo docker-compose logs` |
+| **เปิดเกม** | `cd ~/coraline-challenge && sudo docker compose up -d` |
+| **ปิดเกม** | `cd ~/coraline-challenge && sudo docker compose stop` |
+| **เปิดใหม่หลังปิด** | `cd ~/coraline-challenge && sudo docker compose start` |
+| **รีสตาร์ทเกม** | `cd ~/coraline-challenge && sudo docker compose restart` |
+| **อัพเดทโค้ดแล้ว restart** | `cd ~/coraline-challenge && git pull && sudo docker compose down && sudo docker compose up -d --build` |
+| **ดูล็อก (log)** | `cd ~/coraline-challenge && sudo docker compose logs` |
 | **รีเซ็ตคะแนนสูงสุดเป็น 0** | `sudo docker exec $(sudo docker ps -qf "name=backend") sh -c 'echo "{\"highScore\":0}" > /app/data/high-score.json'` |
 
 ---
@@ -118,7 +124,7 @@ sudo docker-compose up -d
 ถ้าเกมมีคนเล่นเยอะ สามารถเพิ่มจำนวน backend ได้ด้วยคำสั่งเดียว:
 
 ```bash
-cd ~/coraline-challenge/rock-paper-scissors && sudo docker-compose up -d --scale backend=3
+cd ~/coraline-challenge && sudo docker compose up -d --scale backend=3
 ```
 
 > ตัวเลข `3` คือจำนวน backend ที่ต้องการ — เปลี่ยนได้ตามต้องการ

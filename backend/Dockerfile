@@ -1,15 +1,16 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
+RUN npm install -g pnpm@9
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
+COPY pnpm-lock.yaml package.json ./
+RUN pnpm install
 COPY . .
-RUN npm run build
+RUN pnpm run build
 
-FROM node:20-alpine
+FROM node:22-alpine
 WORKDIR /app
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/package.json ./
 RUN mkdir -p /app/data
 EXPOSE 3001
 CMD ["node", "dist/main"]
