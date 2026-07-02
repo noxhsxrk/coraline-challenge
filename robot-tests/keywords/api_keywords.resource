@@ -23,8 +23,8 @@ Score Endpoint Should Return Number
 
 Play Should Return Valid Response
     [Documentation]    POST /api/game/play returns correct structure
-    [Arguments]    ${action}=rock    ${currentScore}=0
-    ${body}=    Create Dictionary    action=${action}    currentScore=${currentScore}
+    [Arguments]    ${action}=rock
+    ${body}=    Create Dictionary    action=${action}
     ${resp}=    POST On Session    api    /api/game/play    json=${body}    expected_status=201
     Dictionary Should Contain Key    ${resp.json()}    botAction
     Dictionary Should Contain Key    ${resp.json()}    result
@@ -39,7 +39,7 @@ Play Should Return Valid Response
 Play Until Lose
     [Documentation]    Keep playing until we get a 'lose' result
     FOR    ${i}    IN RANGE    50
-        ${body}=    Create Dictionary    action=rock    currentScore=${i}
+        ${body}=    Create Dictionary    action=rock
         ${resp}=    POST On Session    api    /api/game/play    json=${body}    expected_status=201
         ${result}=    Set Variable    ${resp.json()['result']}
         IF    "${result}" == "lose"
@@ -50,7 +50,7 @@ Play Until Lose
 
 High Score Should Persist
     [Documentation]    High score stays consistent across API calls
-    ${body}=    Create Dictionary    action=rock    currentScore=0
+    ${body}=    Create Dictionary    action=rock
     ${resp}=    POST On Session    api    /api/game/play    json=${body}    expected_status=201
     ${hs1}=    Set Variable    ${resp.json()['highScore']}
     ${resp}=    GET On Session    api    /api/score    expected_status=200

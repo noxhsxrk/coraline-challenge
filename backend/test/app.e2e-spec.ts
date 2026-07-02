@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { AppModule } from '../src/app.module';
 
 describe('Game API (e2e)', () => {
@@ -27,7 +27,7 @@ describe('Game API (e2e)', () => {
     return request(app.getHttpServer())
       .get('/api/score')
       .expect(200)
-      .expect((res) => {
+      .expect((res: any) => {
         expect(res.body).toHaveProperty('highScore');
         expect(typeof res.body.highScore).toBe('number');
       });
@@ -38,7 +38,7 @@ describe('Game API (e2e)', () => {
       .post('/api/game/play')
       .send({ action: 'rock' })
       .expect(201)
-      .expect((res) => {
+      .expect((res: any) => {
         expect(res.body).toHaveProperty('botAction');
         expect(res.body).toHaveProperty('result');
         expect(res.body).toHaveProperty('yourScore');

@@ -51,10 +51,10 @@ check "Get high score" 200 GET "$BASE/api/score"
 echo ""
 echo "[Game API]"
 # -----------------------------------
-check "Play rock"     200 POST "$BASE/api/game/play" '{"action":"rock","currentScore":0}'
-check "Play paper"    200 POST "$BASE/api/game/play" '{"action":"paper","currentScore":5}'
-check "Play scissors" 200 POST "$BASE/api/game/play" '{"action":"scissors","currentScore":10}'
-check "Invalid action" 400 POST "$BASE/api/game/play" '{"action":"invalid","currentScore":0}'
+check "Play rock"     201 POST "$BASE/api/game/play" '{"action":"rock"}'
+check "Play paper"    201 POST "$BASE/api/game/play" '{"action":"paper"}'
+check "Play scissors" 201 POST "$BASE/api/game/play" '{"action":"scissors"}'
+check "Invalid action" 400 POST "$BASE/api/game/play" '{"action":"invalid"}'
 
 # -----------------------------------
 echo ""
@@ -63,8 +63,8 @@ echo "[Rate Limiting — rapid fire 10 requests]"
 for i in $(seq 1 10); do
   code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE/api/game/play" \
     -H "Content-Type: application/json" \
-    -d '{"action":"rock","currentScore":0}')
-  if [ "$code" = "200" ]; then
+    -d '{"action":"rock"}')
+  if [ "$code" = "201" ]; then
     echo "  Request $i: HTTP $code ✓"
   else
     echo "  Request $i: HTTP $code (rate limited?)"

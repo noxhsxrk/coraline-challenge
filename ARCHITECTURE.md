@@ -198,10 +198,9 @@ AppModule
 
 - Server-authoritative game logic. Client never generates bot action or result.
 - Rate limiting at nginx: 30 requests/min on `/api/game/` with burst=5.
-- Input validation via class-validator DTO (whitelist, forbidNonWhitelisted).
-- Session cookie is httpOnly -- not accessible to JavaScript.
-- However, client can still send arbitrary `action` values (caught by DTO validation).
-- `currentScore` in request body is accepted but `GameService.play` ignores it -- it reads from server-side session. The API test script sends it (legacy), but the DTO doesn't require it and the service doesn't use it.
+- Input validation via class-validator DTO (whitelist + forbidNonWhitelisted + transform).
+- Session cookie is httpOnly with sameSite=strict -- not accessible to JavaScript.
+- `forbidNonWhitelisted: true` in ValidationPipe rejects any unexpected request body fields (e.g., `currentScore`). This is a tight validation stance.
 
 **Assessment:** Anti-cheat is appropriate. For a real-money game you'd want HMAC-signing or a shorter server-side session window, but for this interview challenge it is sufficient.
 
@@ -332,9 +331,20 @@ updateHighScore(newScore: number): number {
 - No file locking → race condition if two backends write simultaneously
 - Acceptable for interview challenge with low traffic. Would not survive production load.
 
-### 5.4 Cleanup Mechanism
+### 5.4 Cleanup Mechanism (FIXED)
 
-`cleanupSessions(maxAgeMs = 30 * 60 * 1000)` exists in `ScoreService` but is **never called**. No scheduler (e.g., `@nestjs/schedule`, `setInterval`) triggers it. This is dead code.
+`cleanupSessions(maxAgeMs = 30 * 60 * 1000)` in `ScoreService` is now **scheduled** via `setInterval` in `onModuleInit()`:
+```typescript
+onModuleInit(): void {
+    this.cleanupTimer = setInterval(() => this.cleanupSessions(), SESSION_CLEANUP_MS);
+}
+```
+- SESSION_CLEANUP_MS = 5 minutes
+- Sessions older than 30 minutes are evicted
+- Timer is cleared in `onModuleDestroy()`
+- Unit tested (cleanupSessions spec covers expiry)
+
+**This resolves the dead-code issue identified in the initial audit.**
 
 ---
 
@@ -353,6 +363,7 @@ updateHighScore(newScore: number): number {
 | Frontend loading | SPA serves static files via nginx; backend failure shows "Connection lost" error | Graceful degradation |
 | Health check | GET /api/health, but **no Docker healthcheck** configured | Missing |
 | depends_on | frontend depends_on backend, but only checks container start, not readiness | Weak |
+| Graceful shutdown | SIGTERM/SIGINT handlers call `app.close()` then `process.exit(0)` | Added since initial audit |
 | CORS | Configured for localhost origins only | Fine for production with proper domain |
 
 ### 6.2 Missing Resilience Patterns
@@ -360,7 +371,7 @@ updateHighScore(newScore: number): number {
 - **No healthcheck in docker-compose:** `docker compose up` considers the backend "healthy" as soon as the process starts. If NestJS takes time to initialize, requests from nginx may fail.
 - **No circuit breaker:** If backend is down, nginx continues to proxy requests, resulting in 502 errors instead of a graceful degraded state.
 - **No retry logic in frontend:** API calls fail immediately on network error. The error message "Connection lost. Try again." is shown, but there is no automatic retry.
-- **No graceful degradation for WebSocket:** If WebSocket connection fails, `socket.io-client` attempts polling fallback (configured), but there is no timeout or reconnection limit shown.
+- **No graceful degradation for WebSocket:** If WebSocket connection fails, `socket.io-client` attempts polling fallback (configured), and auto-reconnection is enabled by default (reconnectionAttempts: Infinity). This is acceptable.
 
 ---
 
@@ -371,7 +382,7 @@ updateHighScore(newScore: number): number {
 | Capability | Present? | Detail |
 |------------|----------|--------|
 | Health endpoint | Yes | `GET /api/health` returns `{ status: 'ok' }` |
-| Security headers | Yes | X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy, Permissions-Policy |
+| Security headers | Yes | Helmet middleware + nginx headers: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy, Permissions-Policy, Content-Security-Policy |
 | Logging | Minimal | NestJS default stdout. No structured logging |
 | Metrics | No | No Prometheus, no request/response metrics |
 | Tracing | No | No distributed tracing |
@@ -402,8 +413,10 @@ The health endpoint is purely superficial -- it returns `{ status: 'ok' }` witho
 | nginx rate limits | frontend/nginx.conf | game: 30r/m, global: 60r/m | hardcoded |
 | nginx upstream | frontend/nginx.conf | backend:3001 | hardcoded |
 | Session cookie maxAge | `GAME.controller.ts` | 7 days | hardcoded |
-| Session cleanup timeout | `score.service.ts` | 30 min (function param) | never called |
+| Session cleanup interval | `score.service.ts` | 5 min | hardcoded |
+| Session cleanup maxAge | `score.service.ts` | 30 min | function parameter, only one call-site |
 | Reveal delay | `useGame.ts` | 2000ms | hardcoded |
+| High score validation | `score.service.ts` | int, non-negative, finite checks | hardcoded |
 
 ### 8.2 Assessment
 
@@ -432,27 +445,27 @@ The health endpoint is purely superficial -- it returns `{ status: 'ok' }` witho
 **Trade-off:** Synchronous I/O, no concurrent-write protection (acceptable at <1 request/second), not suitable for production traffic.
 
 ### ADR-4: NestJS with Interface-Based Dependency Injection
-**Context:** GameService depends on `IScoreService` through the `SCORE_SERVICE_TOKEN` provider, while GameGateway depends on concrete `ScoreService`.
-**Decision:** Partially accepted. The interface abstraction in GameService is good practice. The inconsistency in GameGateway is a minor flaw (should also use the interface).
+**Context:** GameService depends on `IScoreService` through the `SCORE_SERVICE_TOKEN` provider, while GameGateway and GameController depend on concrete `ScoreService`.
+**Decision:** Partially accepted. The interface abstraction in GameService is good practice. The inconsistency in GameGateway and GameController is a minor flaw (should also use the interface).
 **Benefit:** ScoreService can be replaced with a Redis-backed implementation without changing GameService.
 
 ### ADR-5: RxJS Subject for Cross-Module Events
 **Context:** ScoreService uses `highScoreChanged$ = new Subject<number>()` to notify WebSocket gateway of high score changes.
 **Decision:** Good choice. Decouples the persistence layer from the real-time layer. GameGateway subscribes without ScoreService knowing about WebSocket at all.
-**Benefit:** ScoreService has zero awareness of WebSocket/Socket.IO. Clean separation of concerns.
+**Benefit:** ScoreService has zero awareness of WebSocket/Socket.IO. Clean separation of concerns. Subject is properly completed on ModuleDestroy, and GameGateway unsubscribes on destroy -- no resource leaks.
 
 ### ADR-6: Two-Legged Real-Time Architecture
 **Context:** High score updates are sent via Socket.IO, while game play results are returned via HTTP POST response.
 **Decision:** Pragmatic. The game play flow is request-response (user expects immediate feedback), while high score updates benefit from push-based delivery. No need to make game play real-time.
 
 ### ADR-7: Cookie-Based Session Without Authentication
-**Context:** Session is identified by a random UUID stored in an httpOnly cookie. No login, no user identity.
-**Decision:** Appropriate for this use case. The game needs session tracking for scoring but has no concept of user accounts. Cookie is httpOnly for basic anti-tampering.
+**Context:** Session is identified by a random UUID stored in an httpOnly cookie with sameSite=strict and secure flag in production. No login, no user identity.
+**Decision:** Appropriate for this use case. The game needs session tracking for scoring but has no concept of user accounts. Cookie hardening (httpOnly + sameSite + secure) added since initial audit.
 
 ### ADR-8: Multiple Test Frameworks (Jest + Vitest + Playwright + Robot Framework)
 **Context:** Unit tests use Jest (backend) and Vitest (frontend). E2E uses Playwright (frontend-E2E) and Robot Framework (acceptance tests).
 **Decision:** Over-engineered for the application size. Jest and Vitest serve the same purpose but in different stacks (justified). Playwright E2E covers browser automation. Robot Framework adds another layer of acceptance tests that overlaps with Playwright in purpose (both test the running application).
-**Trade-off:** Redundant test coverage. Robot Framework tests add maintenance burden without significant additional value over Playwright. The two test runners for unit tests (Jest + Vitest) are justified by the different runtime environments (Node.js vs jsdom).
+**Trade-off:** Redundant test coverage. Robot Framework tests add maintenance burden without significant additional value over Playwright. Additionally, both Robot Framework tests and the bash API test script send `currentScore` in the POST body, which conflicts with the `forbidNonWhitelisted: true` ValidationPipe setting -- these tests will return HTTP 400 instead of 200/201.
 
 ### ADR-9: 2-Second Artificial Delay on Action Reveal
 **Context:** After submitting an action, the UI waits 2 seconds before showing the bot's choice and result.
@@ -470,57 +483,55 @@ The health endpoint is purely superficial -- it returns `{ status: 'ok' }` witho
 
 ### Scoring Rubric
 
-| Dimension | Score (1-5) | Rationale |
-|-----------|-------------|-----------|
-| **Component Separation** | 4 | Clean module boundaries, clear hook-component separation. Deductions for inconsistent injection patterns |
-| **Data Flow** | 4 | Well-defined request-response flow. Deduction: WebSocket for high scores adds complexity that could have been polling |
-| **Deployment Topology** | 4 | Docker multi-stage builds, documented deployment guide. Deduction: nginx in frontend container couples concerns |
-| **Scalability** | 2 | In-memory sessions break with scale >1. No session affinity, no shared state, no caching |
-| **Fault Tolerance** | 3 | Container restart, graceful degradation on backend failure. Missing: health checks, circuit breakers, retry logic |
-| **Monitoring** | 2 | Basic health endpoint only. No structured logging, no metrics, no tracing |
-| **Configuration Management** | 3 | Environment-driven but scattered across files. Some values hardcoded |
-| **Test Coverage** | 5 | Comprehensive three-level test strategy with good coverage |
-| **Security** | 4 | Server-authoritative game logic, rate limiting, httpOnly cookies, input validation, security headers |
-| **Documentation** | 5 | README, DEPLOYMENT.md (Thai), PRODUCT.md, ARCHITECTURE.md (this doc) |
-| **Interview-Appropriateness** | 4 | Demonstrates understanding of modern full-stack patterns without being incomprehensible |
+| Dimension | Score (1-5) | Rationale | Delta from initial |
+|-----------|-------------|-----------|--------------------|
+| **Component Separation** | 4.5 | Clean module boundaries, clear hook-component separation, IScoreService interface. Minor deduction for inconsistent injection patterns (controller/gateway vs service) | +0.5 |
+| **Data Flow** | 4 | Well-defined request-response flow, RxJS pub-sub for real-time, server-authoritative logic. Clean decoupling between persistence and WebSocket layers | 0 |
+| **Deployment Topology** | 4 | Docker multi-stage builds, documented deployment guide. Deduction: nginx in frontend container couples concerns, no Docker health checks | 0 |
+| **Scalability** | 2.5 | Session cleanup is now scheduled (FIXED). But in-memory sessions still break with scale >1. No session affinity, no shared state, no caching, sync file I/O | +0.5 |
+| **Fault Tolerance** | 3.5 | Container restart, graceful degradation on file corruption, graceful shutdown via SIGTERM/SIGINT (ADDED). Still missing: Docker health checks, circuit breaker, retry logic | +0.5 |
+| **Monitoring** | 2 | Basic health endpoint only. No structured logging, no metrics, no tracing | 0 |
+| **Configuration Management** | 3 | Environment-driven but scattered across files. Some values hardcoded. Compile-time VITE_* env vars bake per-environment values | 0 |
+| **Test Coverage** | 4 | Comprehensive three-level test strategy. Hook-level tests missing. Robot Framework and API test script send `currentScore` which conflicts with `forbidNonWhitelisted: true` validation | -0.5 (new finding) |
+| **Security** | 4.5 | Server-authoritative game logic, rate limiting, httpOnly cookie (sameSite=strict, secure), Helmet middleware, CSP header, strict input validation (whitelist + forbidNonWhitelisted + transform) | +0.5 |
+| **Documentation** | 5 | README, DEPLOYMENT.md (Thai), PRODUCT.md, ARCHITECTURE.md (this doc) | 0 |
+| **Interview-Appropriateness** | 4.5 | Demonstrates mature patterns without being incomprehensible. Refactoring addressed the key concerns. The intentional gaps still serve as good interview discussion points | +0.5 |
 
-### Overall Assessment: 3.6 / 5
+### Overall Assessment: 3.8 / 5 (up from 3.6)
 
-### Is This Over-Engineered?
+### What the Refactoring Achieved
 
-**Slightly over-engineered in these areas:**
-- Robot Framework tests are redundant with Playwright E2E tests. Two E2E frameworks for a game with 3 API endpoints is disproportionate.
-- `IScoreService` interface with custom DI token when there is -- and likely never will be -- a second implementation. Abstraction without known future variation is premature.
-- RxJS `Subject` for a single event type that could have been handled with a simpler callback or EventEmitter pattern. However, the RxJS approach integrates naturally with NestJS.
-- SCSS token system and multiple animation states for an interview challenge. Shows design maturity but is more polished than necessary.
+The refactoring closed four of the initial audit's "low effort / high impact" recommendations:
 
-**Appropriately engineered:**
-- NestJS module structure proves understanding of enterprise patterns.
-- Multi-stage Docker builds demonstrate CI/CD awareness.
-- Three test levels (unit, E2E, acceptance) show testing philosophy.
-- nginx rate limiting shows security consciousness.
-- Anti-cheat architecture shows system thinking.
+1. **Session cleanup scheduled** -- `onModuleInit` now runs `setInterval(() => this.cleanupSessions(), 5min)`. Dead code eliminated.
+2. **Graceful shutdown** -- SIGTERM and SIGINT handlers call `app.close()` before exit.
+3. **Helmet + CSP** -- Helmet middleware on the NestJS backend, Content-Security-Policy in nginx, and the full set of security headers.
+4. **Cookie hardening** -- `httpOnly: true`, `sameSite: 'strict'`, `secure: process.env.NODE_ENV === 'production'`.
+5. **IScoreService interface** -- `GameService` injects via `SCORE_SERVICE_TOKEN` rather than concrete class.
+6. **Stricter validation** -- `forbidNonWhitelisted: true` added to the ValidationPipe, rejecting unexpected fields.
 
-**Under-engineered:**
-- No database (JSON file persistence with race conditions).
-- In-memory sessions that break scaling.
-- No scheduled session cleanup (dead code).
-- No Docker health checks.
-- No structured logging.
+### What Remains Unaddressed
+
+1. **Inconsistent DI** -- `GameGateway` and `GameController` still inject concrete `ScoreService` instead of `IScoreService`.
+2. **No Docker health checks** -- `docker-compose.yml` has no `healthcheck` blocks.
+3. **Scalability bottleneck** -- In-memory sessions with no shared store; JSON file with sync I/O and no concurrent-write protection.
+4. **Monitoring gap** -- No structured logging, metrics, or tracing.
+5. **nginx coupled to frontend container** -- Changing nginx config requires rebuilding the frontend image.
+6. **Test payloads out of sync** -- `api-test.sh` and Robot Framework tests send `currentScore` in the POST body, which is now rejected by `forbidNonWhitelisted: true`.
 
 ### Verdict for Interview Challenge
 
 This architecture is **well-calibrated for a senior full-stack interview challenge**. It demonstrates:
 
-1. **Awareness of production patterns** (Docker, nginx, rate limiting, WebSocket, multi-stage builds) without actually building production infrastructure that would distract from the game itself.
+1. **Awareness of production patterns** (Docker, nginx, rate limiting, WebSocket, multi-stage builds, graceful shutdown, security hardening) without actually building production infrastructure that would distract from the game itself.
 
-2. **Clean separation of concerns** that a reviewer can quickly evaluate: frontend/backend split, module structure, hook/component split, interface-based DI.
+2. **Responsiveness to code review** -- the refactoring addressed the initial audit findings, showing that the architecture evolves under review. This is a strong signal for an interview context.
 
-3. **"Tells the story"** of how the game works through its architecture. The data flow is clear, the anti-cheat design is explicit, the real-time feature uses a proper pub-sub pattern.
+3. **Clean separation of concerns** that a reviewer can quickly evaluate: frontend/backend split, module structure, hook/component split, interface-based DI.
 
-4. **Notable gaps** (scalability, monitoring) that provide natural discussion points during an interview review. An interviewer can ask: "How would you make this handle 10,000 concurrent players?" and the candidate can discuss Redis sessions, database choices, load balancing strategies.
+4. **"Tells the story"** of how the game works through its architecture. The data flow is clear, the anti-cheat design is explicit, the real-time feature uses a proper pub-sub pattern.
 
-The architecture is intentionally not production-grade -- that would be over-engineered for a take-home challenge. It is **demonstration-grade**: good enough to ship, clean enough to review, and with enough intentional gaps to discuss.
+5. **Intentional gaps** (scalability, monitoring, health checks) that provide natural discussion points during an interview review. An interviewer can ask: "How would you make this handle 10,000 concurrent players?" and the candidate can discuss Redis sessions, database choices, load balancing strategies.
 
 ---
 
@@ -528,7 +539,7 @@ The architecture is intentionally not production-grade -- that would be over-eng
 
 ### Low Effort / High Impact
 
-1. **Fix inconsistent DI patterns:** Make `GameGateway` inject `IScoreService` via `SCORE_SERVICE_TOKEN` instead of the concrete `ScoreService` class.
+1. **Fix inconsistent DI patterns:** Make `GameGateway` and `GameController` inject `IScoreService` via `SCORE_SERVICE_TOKEN` instead of the concrete `ScoreService` class. This completes the abstraction boundary.
 
 2. **Add Docker health checks:**
 ```yaml
@@ -544,9 +555,9 @@ frontend:
       condition: service_healthy
 ```
 
-3. **Schedule session cleanup:** Add `setInterval` in ScoreService constructor to call `cleanupSessions()` periodically.
+3. **Fix test payloads:** Remove `currentScore` from the POST body in `scripts/api-test.sh` and Robot Framework API keywords. After the `forbidNonWhitelisted: true` change, this field triggers a 400 error.
 
-4. **Remove dead code:** The `currentScore` field in the request body of `api-test.sh` and robot tests is not used by the server. Clean up for clarity.
+4. **Remove redundant fields from DTO:** The `currentScore` reference in README.md API documentation should be removed (it says `{ action, currentScore }` but the DTO only accepts `action`).
 
 ### Medium Effort
 
@@ -554,15 +565,17 @@ frontend:
 
 6. **Add structured logging:** Replace `console.log` with a structured logger (NestJS Logger, pino, winston) for better debugging and production operations.
 
+7. **Add hook-level tests:** `useGame` is the most complex piece of frontend logic (state machine with async play, timers, error handling, history). It has no unit tests. Add Vitest tests with mocked API responses.
+
 ### For Production Readiness
 
-7. **Replace JSON file with a database (SQLite for simplicity, Postgres for scale):** Solves persistence, concurrency, and data integrity.
+8. **Replace JSON file with a database (SQLite for simplicity, Postgres for scale):** Solves persistence, concurrency, and data integrity.
 
-8. **Add a shared session store (Redis):** Enables proper horizontal scaling while maintaining session continuity across backend instances.
+9. **Add a shared session store (Redis):** Enables proper horizontal scaling while maintaining session continuity across backend instances.
 
-9. **Implement proper health check logic** that verifies full subsystem availability (filesystem, session store, WebSocket).
+10. **Implement proper health check logic** that verifies full subsystem availability (filesystem, session store, WebSocket).
 
-10. **Add nginx ip_hash for session affinity** if scaling beyond 1 backend without changing session storage.
+11. **Add nginx ip_hash for session affinity** if scaling beyond 1 backend without changing session storage.
 
 ---
 
@@ -574,22 +587,22 @@ frontend:
 | `backend/Dockerfile` | Multi-stage NestJS build |
 | `frontend/Dockerfile` | Multi-stage React + nginx build |
 | `frontend/nginx.conf` | API gateway configuration |
-| `backend/src/main.ts` | Application bootstrap |
+| `backend/src/main.ts` | Application bootstrap (Helmet, cookie-parser, CORS, ValidationPipe, SIGTERM handler) |
 | `backend/src/app.module.ts` | Module composition |
-| `backend/src/game/game.controller.ts` | REST controller |
-| `backend/src/game/game.service.ts` | Game business logic |
-| `backend/src/game/play-request.dto.ts` | Request validation |
-| `backend/src/score/score.service.ts` | Session + persistence |
-| `backend/src/score/score.interface.ts` | Service contract |
+| `backend/src/game/game.controller.ts` | REST controller (cookie-based session management) |
+| `backend/src/game/game.service.ts` | Game business logic (injects IScoreService via token) |
+| `backend/src/game/play-request.dto.ts` | Request validation (class-validator) |
+| `backend/src/score/score.service.ts` | Session + persistence + RxJS events (scheduled cleanup) |
+| `backend/src/score/score.interface.ts` | Service contract (IScoreService) |
 | `backend/src/score/score.module.ts` | Global module + DI token |
-| `backend/src/websocket/game.gateway.ts` | Socket.IO bridge |
+| `backend/src/websocket/game.gateway.ts` | Socket.IO bridge (subscribes to highScoreChanged$) |
 | `frontend/src/App.tsx` | Root component |
 | `frontend/src/hooks/useGame.ts` | Game state machine |
 | `frontend/src/hooks/useHighScoreSocket.ts` | WebSocket client |
 | `frontend/src/lib/api.ts` | HTTP client |
 | `frontend/src/types/game.ts` | Shared types + constants |
 | `frontend/src/styles/tokens.scss` | Design tokens |
-| `frontend/nginx.conf` | Gateway + load balancer config |
+| `frontend/nginx.conf` | Gateway + load balancer config (rate limits, security headers, CSP) |
 | `DEPLOYMENT.md` | Thai-language deployment guide |
 | `PRODUCT.md` | Product design document |
 | `README.md` | Main documentation |
