@@ -3,6 +3,7 @@ export type Result = 'win' | 'lose' | 'draw';
 
 export interface PlayRequest {
   action: Action;
+  nonce: string;
 }
 
 export interface PlayResponse {

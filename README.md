@@ -15,7 +15,7 @@ Play Rock Paper Scissors against the bot. Real-time high score, responsive desig
 | Real-time | Socket.IO (WebSocket) |
 | API Gateway | nginx (rate limiting, load balancing) |
 | Container | Docker + docker-compose |
-| Tests | Jest (backend) + Vitest (frontend) + Playwright (E2E) |
+| Tests | Jest (backend) + Vitest (frontend) + Playwright (E2E) + Robot Framework (E2E) |
 
 ---
 
@@ -24,15 +24,15 @@ Play Rock Paper Scissors against the bot. Real-time high score, responsive desig
 ```bash
 # Terminal 1 — Backend
 cd backend
-npm install
-npm run start:dev        # → http://localhost:3001
+pnpm install
+pnpm run start:dev        # → http://localhost:3001
 
 # Terminal 2 — Frontend
 cd frontend
-npm install
+pnpm install
 echo "VITE_API_URL=http://localhost:3001" > .env
 echo "VITE_WS_URL=http://localhost:3001" >> .env
-npm run dev              # → http://localhost:3000
+pnpm run dev              # → http://localhost:3000
 ```
 
 ---
@@ -40,14 +40,14 @@ npm run dev              # → http://localhost:3000
 ## Quick Start (Docker)
 
 ```bash
-docker-compose up -d
+docker compose up -d
 # → http://localhost:3000
 ```
 
 Scale backend for more players:
 
 ```bash
-docker-compose up -d --scale backend=3
+docker compose up -d --scale backend=3
 ```
 
 ---
@@ -67,8 +67,10 @@ docker-compose up -d --scale backend=3
 │   └── Dockerfile
 ├── backend/                  # NestJS API
 │   ├── src/
-│   │   ├── game/             # Game logic + controller
-│   │   ├── score/            # High score persistence (JSON file)
+│   │   ├── game/             # POST /api/game/play + game logic
+│   │   ├── score/            # GET /api/score + persistence + sessions
+│   │   ├── nonce/            # GET /api/nonce (anti-cheat tokens)
+│   │   ├── health/           # GET /api/health (monitoring)
 │   │   └── websocket/        # Socket.IO real-time gateway
 │   ├── test/                 # E2E tests
 │   └── Dockerfile
@@ -99,8 +101,9 @@ docker-compose up -d --scale backend=3
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/game/play` | Play a round `{ action, currentScore }` |
-| `GET` | `/api/score` | Get high score |
+| `GET` | `/api/nonce` | Get a single-use nonce token (anti-cheat) |
+| `POST` | `/api/game/play` | Play a round `{ action, nonce }` |
+| `GET` | `/api/score` | Get your score + high score |
 | `GET` | `/api/health` | Health check (for monitoring) |
 | `WS` | `/socket.io/` | Real-time `highScoreUpdated` events |
 
@@ -108,10 +111,11 @@ docker-compose up -d --scale backend=3
 
 ## Anti-Cheat
 
-- Bot action is randomized **server-side only** — client never generates it
-- Result (win/lose/draw) is determined server-side
-- Rate limiting via nginx: max 30 requests/min on game endpoint
-- High score is server-authoritative
+- **Nonce tokens** — each play requires a single-use token from `GET /api/nonce`. Prevents replay and request-race attacks
+- **Server-authoritative** — bot action randomized server-side, result determined server-side, score tracked per session
+- **Session-bound** — score tracked in `httpOnly` cookie session, not client-controlled
+- **Rate limiting** via nginx: 30 req/min on game endpoint, 5 concurrent WebSocket connections per IP
+- **Input validation** — `class-validator` with `whitelist: true` rejects unknown fields
 
 ---
 

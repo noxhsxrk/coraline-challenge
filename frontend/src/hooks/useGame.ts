@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { Action, Result, HistoryEntry, PlayResponse } from '../types/game';
-import { playGame } from '../lib/api';
+import { playGame, fetchNonce } from '../lib/api';
 
 const REVEAL_MS = 2000;
 const MAX_HISTORY = 50;
@@ -38,7 +38,8 @@ export function useGame() {
       setError(null);
 
       try {
-        const data: PlayResponse = await playGame({ action });
+        const { nonce } = await fetchNonce();
+        const data: PlayResponse = await playGame({ action, nonce });
 
         setBotAction(data.botAction);
 
