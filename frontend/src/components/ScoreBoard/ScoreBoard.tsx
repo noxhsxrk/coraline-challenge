@@ -5,7 +5,7 @@ interface ScoreBoardProps {
   highScore: number;
 }
 
-export function ScoreBoard({ yourScore, highScore }: ScoreBoardProps) {
+export const ScoreBoard = ({ yourScore, highScore }: ScoreBoardProps) => {
   return (
     <div className={styles.board}>
       <div className={styles.score}>

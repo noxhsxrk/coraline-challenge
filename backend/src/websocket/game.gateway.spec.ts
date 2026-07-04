@@ -2,12 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { GameGateway } from './game.gateway';
 import { ScoreService } from '../score/score.service';
 import { Subject } from 'rxjs';
+import { Server, Socket } from 'socket.io';
 
 describe('GameGateway', () => {
   let gateway: GameGateway;
   let highScoreChanged$: Subject<number>;
 
-  const mockServer = {
+  const mockServer: Pick<Server, 'emit'> = {
     emit: jest.fn(),
   };
 
@@ -32,7 +33,7 @@ describe('GameGateway', () => {
     }).compile();
 
     gateway = module.get<GameGateway>(GameGateway);
-    (gateway as any).server = mockServer;
+    Object.assign(gateway, { server: mockServer });
   });
 
   afterEach(() => {
@@ -52,9 +53,9 @@ describe('GameGateway', () => {
 
   describe('handleConnection', () => {
     it('sends current high score to newly connected client', () => {
-      const client = { emit: jest.fn() } as any;
+      const client: Pick<Socket, 'emit'> = { emit: jest.fn() };
 
-      gateway.handleConnection(client);
+      gateway.handleConnection(client as Socket);
 
       expect(client.emit).toHaveBeenCalledWith('highScoreUpdated', {
         highScore: 5,

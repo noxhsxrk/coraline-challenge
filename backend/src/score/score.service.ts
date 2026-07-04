@@ -16,6 +16,7 @@ const COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 interface Session {
   yourScore: number;
   lastSeen: number;
+  nonce?: string;
 }
 
 @Injectable()
@@ -35,7 +36,7 @@ export class ScoreService implements IScoreService, OnModuleInit, OnModuleDestro
       maxAge: COOKIE_MAX_AGE,
     };
 
-    let sessionId = (req as any).cookies?.[SESSION_COOKIE];
+    let sessionId = (req as Request & { cookies?: Record<string, string> }).cookies?.[SESSION_COOKIE];
     if (!sessionId) {
       sessionId = this.createSession();
       res.cookie(SESSION_COOKIE, sessionId, options);
@@ -105,17 +106,17 @@ export class ScoreService implements IScoreService, OnModuleInit, OnModuleDestro
     const nonce = crypto.randomUUID();
     const session = this.sessions.get(sessionId);
     if (session) {
-      (session as any).nonce = nonce;
+      session.nonce = nonce;
     }
     return nonce;
   }
 
   validateNonce(sessionId: string, nonce: string): boolean {
     const session = this.sessions.get(sessionId);
-    if (!session || !(session as any).nonce) return false;
-    const valid = (session as any).nonce === nonce;
+    if (!session || !session.nonce) return false;
+    const valid = session.nonce === nonce;
     if (valid) {
-      delete (session as any).nonce;
+      delete session.nonce;
     }
     return valid;
   }

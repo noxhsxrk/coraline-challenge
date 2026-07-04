@@ -7,7 +7,7 @@ interface BotDisplayProps {
   isLocked: boolean;
 }
 
-export function BotDisplay({ action, isLocked }: BotDisplayProps) {
+export const BotDisplay = ({ action, isLocked }: BotDisplayProps) => {
   const display = action ? ACTION_EMOJI[action] : '❓';
   const label = action ? `Bot chose ${action}!` : 'Bot is waiting...';
 

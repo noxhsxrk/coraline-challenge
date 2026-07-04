@@ -6,7 +6,7 @@ interface HistoryProps {
   entries: HistoryEntry[];
 }
 
-export function History({ entries }: HistoryProps) {
+export const History = ({ entries }: HistoryProps) => {
   if (entries.length === 0) return null;
 
   return (

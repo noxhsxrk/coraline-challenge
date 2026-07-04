@@ -9,7 +9,7 @@ interface GameActionsProps {
   disabled: boolean;
 }
 
-export function GameActions({ onSelect, disabled }: GameActionsProps) {
+export const GameActions = ({ onSelect, disabled }: GameActionsProps) => {
   return (
     <div className={styles.actions}>
       {ACTIONS.map((action) => (

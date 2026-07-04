@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { GameService } from './game.service';
+import { GameService, Action } from './game.service';
 import { SCORE_SERVICE_TOKEN } from '../score/score.module';
+
+type GameServicePrivate = { randomAction: () => Action };
 
 describe('GameService', () => {
   let gameService: GameService;
@@ -43,7 +45,7 @@ describe('GameService', () => {
 
     it('increments score on win', () => {
       mockSession.yourScore = 5;
-      jest.spyOn(gameService as any, 'randomAction').mockReturnValue('scissors');
+      jest.spyOn(gameService as unknown as GameServicePrivate, 'randomAction').mockReturnValue('scissors');
       const r = gameService.play('rock', 's1');
       expect(r.result).toBe('win');
       expect(r.yourScore).toBe(6);
@@ -52,7 +54,7 @@ describe('GameService', () => {
 
     it('resets score to 0 on lose', () => {
       mockSession.yourScore = 5;
-      jest.spyOn(gameService as any, 'randomAction').mockReturnValue('paper');
+      jest.spyOn(gameService as unknown as GameServicePrivate, 'randomAction').mockReturnValue('paper');
       const r = gameService.play('rock', 's1');
       expect(r.result).toBe('lose');
       expect(r.yourScore).toBe(0);
@@ -60,7 +62,7 @@ describe('GameService', () => {
 
     it('keeps score on draw', () => {
       mockSession.yourScore = 5;
-      jest.spyOn(gameService as any, 'randomAction').mockReturnValue('rock');
+      jest.spyOn(gameService as unknown as GameServicePrivate, 'randomAction').mockReturnValue('rock');
       const r = gameService.play('rock', 's1');
       expect(r.result).toBe('draw');
       expect(r.yourScore).toBe(5);

@@ -6,7 +6,7 @@ interface ResultBannerProps {
   result: Result | null;
 }
 
-export function ResultBanner({ result }: ResultBannerProps) {
+export const ResultBanner = ({ result }: ResultBannerProps) => {
   if (!result) return null;
 
   return (

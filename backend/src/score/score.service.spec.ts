@@ -6,10 +6,10 @@ import * as path from 'path';
 const DATA_DIR = path.resolve(__dirname, '../../data');
 const HIGH_SCORE_FILE = path.join(DATA_DIR, 'high-score.json');
 
-function resetScore(): void {
+const resetScore = (): void => {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.writeFileSync(HIGH_SCORE_FILE, JSON.stringify({ highScore: 0 }), 'utf-8');
-}
+};
 
 describe('ScoreService', () => {
   let scoreService: ScoreService;

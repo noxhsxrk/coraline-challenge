@@ -1,6 +1,6 @@
 import styles from './Header.module.scss';
 
-export function Header() {
+export const Header = () => {
   return (
     <header className={styles.header}>
       <h1 className={styles.title}>Rock Paper Scissors</h1>

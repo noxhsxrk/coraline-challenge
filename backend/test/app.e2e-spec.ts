@@ -27,7 +27,7 @@ describe('Game API (e2e)', () => {
     return request(app.getHttpServer())
       .get('/api/score')
       .expect(200)
-      .expect((res: any) => {
+      .expect((res: request.Response) => {
         expect(res.body).toHaveProperty('highScore');
         expect(typeof res.body.highScore).toBe('number');
       });
@@ -37,7 +37,7 @@ describe('Game API (e2e)', () => {
     return request(app.getHttpServer())
       .get('/api/nonce')
       .expect(200)
-      .expect((res: any) => {
+      .expect((res: request.Response) => {
         expect(res.body).toHaveProperty('nonce');
         expect(typeof res.body.nonce).toBe('string');
         expect(res.body.nonce.length).toBeGreaterThan(0);
@@ -75,7 +75,7 @@ describe('Game API (e2e)', () => {
       .post('/api/game/play')
       .send({ action: 'rock', nonce })
       .expect(201)
-      .expect((res: any) => {
+      .expect((res: request.Response) => {
         expect(res.body).toHaveProperty('botAction');
         expect(res.body).toHaveProperty('result');
         expect(res.body).toHaveProperty('yourScore');

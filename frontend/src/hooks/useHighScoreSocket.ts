@@ -3,7 +3,7 @@ import { io, Socket } from 'socket.io-client';
 
 const WS_URL = import.meta.env.VITE_WS_URL ?? '';
 
-export function useHighScoreSocket(onHighScoreUpdate: (score: number) => void) {
+export const useHighScoreSocket = (onHighScoreUpdate: (score: number) => void) => {
   useEffect(() => {
     const socket: Socket = io(WS_URL, {
       transports: ['websocket', 'polling'],

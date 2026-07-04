@@ -5,7 +5,7 @@ import { playGame, fetchNonce } from '../lib/api';
 const REVEAL_MS = 2000;
 const MAX_HISTORY = 50;
 
-export function useGame() {
+export const useGame = () => {
   const [yourScore, setYourScore] = useState<number>(0);
   const [highScore, setHighScore] = useState<number>(0);
   const [botAction, setBotAction] = useState<Action | null>(null);

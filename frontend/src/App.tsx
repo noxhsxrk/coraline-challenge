@@ -10,7 +10,7 @@ import { useHighScoreSocket } from './hooks/useHighScoreSocket';
 import { fetchScore } from './lib/api';
 import styles from './App.module.scss';
 
-export default function App() {
+const App = () => {
   const {
     yourScore,
     highScore,
@@ -56,4 +56,6 @@ export default function App() {
       <History entries={history} />
     </div>
   );
-}
+};
+
+export default App;

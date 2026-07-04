@@ -25,7 +25,7 @@ describe('PlayRequestDto', () => {
 
   it('rejects invalid action', async () => {
     const dto = new PlayRequestDto();
-    (dto as any).action = 'invalid';
+    (dto as { action: string }).action = 'invalid';
     const errors = await validate(dto);
     expect(errors.length).toBeGreaterThan(0);
     expect(errors[0].constraints?.isIn).toBeDefined();
@@ -33,7 +33,7 @@ describe('PlayRequestDto', () => {
 
   it('rejects empty action', async () => {
     const dto = new PlayRequestDto();
-    (dto as any).action = '';
+    (dto as { action: string }).action = '';
     const errors = await validate(dto);
     expect(errors.length).toBeGreaterThan(0);
   });

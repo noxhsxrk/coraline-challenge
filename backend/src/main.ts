@@ -11,7 +11,7 @@ const CORS_ORIGIN = process.env.CORS_ORIGIN?.split(',') ?? [
   'http://localhost:5173',
 ];
 
-async function bootstrap() {
+const bootstrap = async (): Promise<void> => {
   const app = await NestFactory.create(AppModule);
 
   app.use(helmet());
